@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laboratorium pH</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky tab rail on top, two-column workbench (inputs | live result), full-width titration chart. Direction: titration bench, cool slate neutrals, indicator-strip colour used only for pH data. */
+:root{
+  --bg:#EDF2F4; --surface:#FFFFFF; --surface2:#E1EAEE; --ink:#10242E; --muted:#4C616B; --line:#C7D5DB;
+  --accent:#0A6C8C; --accent-ink:#FFFFFF;
+  --acid:#C0400A; --base:#2A55C8; --neutral:#1B7F55; --bad:#B3261E; --ok:#17794A; --warn:#8A5A00;
+  --font-d:'Bricolage Grotesque',system-ui,sans-serif;
+  --font-b:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --font-m:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1A21; --surface:#12252E; --surface2:#1B3440; --ink:#E5EFF3; --muted:#9BB2BC; --line:#284553;
+  --accent:#4FC3E8; --accent-ink:#06222C;
+  --acid:#FF8F63; --base:#8AA9FF; --neutral:#4CC38A; --bad:#FF8A80; --ok:#5FD39A; --warn:#F0B54A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1A21; --surface:#12252E; --surface2:#1B3440; --ink:#E5EFF3; --muted:#9BB2BC; --line:#284553;
+  --accent:#4FC3E8; --accent-ink:#06222C;
+  --acid:#FF8F63; --base:#8AA9FF; --neutral:#4CC38A; --bad:#FF8A80; --ok:#5FD39A; --warn:#F0B54A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--font-b);padding-block:0 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1100px;margin:0 auto}
+h1,h2,h3{font-family:var(--font-d);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:clamp(28px,5vw,40px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;font-weight:700;margin-bottom:14px}
+h3{font-size:15px;font-weight:700;margin:18px 0 8px}
+p{margin:0 0 10px}
+sub,sup{line-height:0}
+
+.hd{padding:22px 0 10px;display:grid;gap:6px}
+.eyebrow{font:500 12px/1 var(--font-m);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0}
+.lede{color:var(--muted);max-width:62ch;margin:0}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-bottom:18px}
+nav.tabs div{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs div::-webkit-scrollbar{display:none}
+nav.tabs a{flex:none;padding:12px 14px;color:var(--muted);text-decoration:none;font-weight:600;border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs a:hover{color:var(--ink)}
+nav.tabs a[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.panel{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);margin-bottom:16px;align-items:start}
+@media(min-width:860px){.panel{grid-template-columns:minmax(300px,390px) minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;min-width:0}
+.card+.card{margin-top:0}
+.stack{display:grid;gap:16px;min-width:0}
+
+.f{display:flex;flex-direction:column;gap:5px;margin-bottom:13px;min-width:0}
+.f>label{font-size:13px;font-weight:600;color:var(--muted)}
+.f small{color:var(--muted);font-size:12px}
+.in{position:relative}
+input[type=text],select{width:100%;height:42px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:0 12px;font:500 15px var(--font-m)}
+select{font-family:var(--font-b);font-weight:400;padding-right:8px;text-overflow:ellipsis}
+.in .u{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font:12px var(--font-m);pointer-events:none}
+.in:has(.u) input{padding-right:44px}
+.f select+.in{margin-top:0}
+details{margin-top:6px}
+summary{cursor:pointer;font-weight:600;color:var(--accent);padding:6px 0}
+details[open]>summary{margin-bottom:8px}
+.blk{border-top:1px dashed var(--line);padding-top:12px;margin-top:6px}
+.blk:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.sub{font-size:13px;color:var(--muted);margin:2px 0 10px}
+
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+button{font:600 14px var(--font-b);cursor:pointer}
+.seg button,.btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:9px 14px;border-radius:6px;min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:hover,.seg button:hover{border-color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+.res-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.k{font:500 12px var(--font-m);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ph{font:700 clamp(48px,9vw,68px)/1 var(--font-d);font-variant-numeric:tabular-nums}
+.pill{padding:4px 13px;border:1.5px solid currentColor;border-radius:99px;font-weight:600;font-size:13px;white-space:nowrap}
+.pill.acid{color:var(--acid)}.pill.base{color:var(--base)}.pill.neutral{color:var(--neutral)}
+.what{margin:10px 0 0;color:var(--muted);font-weight:500}
+.phbar{position:relative;height:14px;border-radius:7px;margin:22px 0 24px;
+  background:linear-gradient(90deg,#d7261e 0%,#ef6a1a 14%,#f6b21b 28%,#e6d630 36%,#8ccf3f 47%,#2fb36a 55%,#1aa3a8 64%,#2a6fd6 78%,#4b3fb5 90%,#6d2f9c 100%)}
+.phbar i{position:absolute;top:-9px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid var(--ink);transform:translateX(-50%);transition:left .35s ease}
+.phbar span{position:absolute;top:18px;font:11px var(--font-m);color:var(--muted);transform:translateX(-50%)}
+dl.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+dl.stats div{background:var(--bg);border-radius:6px;padding:9px 11px;min-width:0}
+dl.stats dt{font:500 11px var(--font-m);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+dl.stats dd{margin:2px 0 0;font:500 14px var(--font-m);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+ol.steps{margin:0;padding-left:22px;display:grid;gap:9px}
+ol.steps li::marker{color:var(--accent);font-weight:700}
+.note{background:var(--surface2);border-radius:6px;padding:10px 12px;font-size:14px;margin:12px 0 0}
+.err{color:var(--bad);font-weight:600;margin:0}
+.scroll{overflow-x:auto;margin:14px 0 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.mrs{font-family:var(--font-m);font-size:13px}
+table.mrs th,table.mrs td{text-align:right;white-space:nowrap}
+table.mrs thead th{color:var(--muted);font-weight:500}
+table.mrs tbody th{text-align:left;font-family:var(--font-b);font-weight:600}
+td.n,th.n{font-family:var(--font-m);font-variant-numeric:tabular-nums;white-space:nowrap}
+.good{color:var(--ok);font-weight:600}.mid{color:var(--warn);font-weight:600}.no{color:var(--bad);font-weight:600}
+
+.chart-grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:760px){.chart-grid{grid-template-columns:minmax(0,1fr) 200px}}
+.cwrap{position:relative;height:320px;min-width:0}
+#tt-cv{width:100%;height:100%;display:block;touch-action:pan-y;cursor:crosshair}
+.side{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.side svg{width:150px;max-width:100%;height:auto}
+.meter{font:700 40px/1 var(--font-d);font-variant-numeric:tabular-nums}
+.slide{margin-top:12px;display:grid;gap:8px}
+.slide input[type=range]{width:100%;accent-color:var(--accent);height:30px}
+.slide output{font:500 14px var(--font-m)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+.chip{border:1px solid var(--line);border-radius:99px;padding:3px 11px;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.sw{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid var(--line)}
+.q{font-size:17px;line-height:1.6}
+.fb{margin:12px 0 0;font-weight:600}
+.score{font:500 13px var(--font-m);color:var(--muted)}
+.ref{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:860px){.ref{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ref .card p{margin:0 0 8px}
+.fx{font-family:var(--font-m);font-size:14px;background:var(--bg);border-radius:6px;padding:7px 10px;margin:6px 0;overflow-x:auto;white-space:nowrap}
+footer{margin-top:28px;color:var(--muted);font-size:13px}
+@media(prefers-reduced-motion:reduce){.phbar i{transition:none}}
+</style>
+
+</head>
+<body>
+<header class="wrap hd">
+  <p class="eyebrow">Kimia · Asam Basa</p>
+  <h1>Laboratorium pH</h1>
+  <p class="lede">Hitung pH larutan asam dan basa, campurannya, hidrolisis garam, larutan penyangga, dan kurva titrasi. Setiap hasil disertai langkah penyelesaian seperti di buku.</p>
+</header>
+<nav class="tabs wrap" aria-label="Modul"><div id="tabs"></div></nav>
+<main class="wrap" id="main">
+  <section class="tab" id="tab-asam-basa" hidden></section>
+  <section class="tab" id="tab-campuran" hidden></section>
+  <section class="tab" id="tab-hidrolisis" hidden></section>
+  <section class="tab" id="tab-penyangga" hidden></section>
+  <section class="tab" id="tab-titrasi" hidden></section>
+  <section class="tab" id="tab-esai" hidden></section>
+  <section class="tab" id="tab-latihan" hidden></section>
+  <section class="tab" id="tab-rumus" hidden></section>
+</main>
+<footer class="wrap">Asumsi: suhu 25 °C (K<sub>w</sub> = 1,0 × 10<sup>−14</sup>), volume campuran dianggap aditif, asam/basa lemah monoprotik, asam/basa kuat terionisasi sempurna. Angka boleh ditulis 0,1 atau 0.1, dan K boleh ditulis 1,8e-5 atau 1,8×10^-5.</footer>
+
+<script>
+/* ================= MESIN PERHITUNGAN (tanpa DOM) ================= */
+const KW=1e-14;
+const hp='[H<sup>+</sup>]', oh='[OH<sup>−</sup>]', KaS='K<sub>a</sub>', KbS='K<sub>b</sub>', KwS='K<sub>w</sub>';
+const ACIDS=[['CH₃COOH (asam asetat)','1.8e-5'],['HCOOH (asam format)','1.8e-4'],['HF (asam fluorida)','6.8e-4'],['HNO₂ (asam nitrit)','4.5e-4'],['C₆H₅COOH (asam benzoat)','6.3e-5'],['HCN (asam sianida)','4.9e-10'],['HClO (asam hipoklorit)','3.5e-8']];
+const BASES=[['NH₃ (amonia)','1.8e-5'],['CH₃NH₂ (metilamina)','4.4e-4'],['N₂H₄ (hidrazina)','1.7e-6'],['C₅H₅N (piridina)','1.7e-9'],['C₆H₅NH₂ (anilina)','4.3e-10']];
+const INDS=[
+ ['mo','Metil jingga',3.1,4.4,[214,40,40,.85],[250,200,30,.9],'merah','kuning'],
+ ['bkh','Bromkresol hijau',3.8,5.4,[235,200,40,.9],[40,110,200,.9],'kuning','biru'],
+ ['mm','Metil merah',4.2,6.3,[214,40,40,.85],[250,210,40,.9],'merah','kuning'],
+ ['btb','Bromtimol biru',6.0,7.6,[240,205,40,.9],[40,100,200,.9],'kuning','biru'],
+ ['pr','Fenol merah',6.8,8.4,[245,200,40,.9],[215,30,70,.9],'kuning','merah'],
+ ['pp','Fenolftalein',8.3,10.0,[200,210,220,.15],[220,40,130,.85],'tak berwarna','merah muda'],
+ ['tf','Timolftalein',9.3,10.5,[200,210,220,.15],[40,90,200,.85],'tak berwarna','biru']
+].map(a=>({id:a[0],name:a[1],lo:a[2],hi:a[3],a:a[4],b:a[5],ca:a[6],cb:a[7]}));
+
+function parseNum(s){
+  if(typeof s==='number')return s;
+  s=String(s).replace(/\s+/g,'').replace(/−/g,'-').replace(/,/g,'.');
+  s=s.replace(/^10\^([+\-]?\d+)$/,'1e$1').replace(/[x×*]10\^?([+\-]?\d+)$/i,'e$1');
+  if(s==='')return NaN;
+  return Number(s);
+}
+function sci(x,d=2){
+  if(!isFinite(x))return '–'; if(x===0)return '0';
+  const a=Math.abs(x);
+  if(a>=1e-3&&a<1e4)return String(+x.toPrecision(d+1)).replace('.',',');
+  let e=Math.floor(Math.log10(a)), m=x/Math.pow(10,e); m=+m.toFixed(d);
+  if(Math.abs(m)>=10){m/=10;e++}
+  return String(m).replace('.',',')+' × 10<sup>'+(e<0?'−'+(-e):e)+'</sup>';
+}
+function pHf(p){const v=Math.round(p*100)/100;return (v===0?0:v).toFixed(2).replace('.',',')}
+function phClass(p){ if(p<6.995)return{c:'acid',t:'Bersifat asam'}; if(p>7.005)return{c:'base',t:'Bersifat basa'}; return{c:'neutral',t:'Netral'}; }
+const lg=x=>Math.log10(x);
+function rH(h,steps,label,extra){return Object.assign({H:h,OH:KW/h,pH:-lg(h),steps,label},extra||{})}
+function rO(o,steps,label,extra){return Object.assign({H:KW/o,OH:o,pH:14+lg(o),steps,label},extra||{})}
+
+/* pH eksak lewat keseimbangan muatan. an={type,kind,M(total),n,K}; Ct = konsentrasi ekuivalen titran/ion lawan */
+function exactPH(an,Ct){
+  const C=an.M;
+  const g=h=>{
+    let v=h-KW/h;
+    if(an.type==='acid') v+=Ct-(an.kind==='S'?an.n*C:C*an.K/(an.K+h));
+    else v+=-Ct+(an.kind==='S'?an.n*C:C*h/(h+KW/an.K));
+    return v;
+  };
+  let lo=-2,hi=16;
+  for(let i=0;i<120;i++){const mid=(lo+hi)/2; if(g(Math.pow(10,-mid))>0)lo=mid; else hi=mid;}
+  return (lo+hi)/2;
+}
+
+function strongAcid(M,n){
+  const C=M*n, st=[]; let h=C, notes=[];
+  st.push('Asam kuat terionisasi sempurna, sehingga '+hp+' = valensi × M = '+n+' × '+sci(M)+' = '+sci(C)+' M');
+  if(C<1e-6){h=(C+Math.sqrt(C*C+4*KW))/2; st.push('Konsentrasi sangat kecil (&lt; 10<sup>−6</sup> M), ionisasi air tidak boleh diabaikan: '+hp+' = (C + √(C² + 4'+KwS+'))/2 = '+sci(h)+' M'); notes.push('Larutan asam yang sangat encer tidak pernah mencapai pH di atas 7.');}
+  st.push('pH = −log '+hp+' = '+pHf(-lg(h)));
+  return rH(h,st,'Asam kuat',{notes});
+}
+function strongBase(M,n){
+  const C=M*n, st=[]; let o=C, notes=[];
+  st.push('Basa kuat terionisasi sempurna, sehingga '+oh+' = valensi × M = '+n+' × '+sci(M)+' = '+sci(C)+' M');
+  if(C<1e-6){o=(C+Math.sqrt(C*C+4*KW))/2; st.push('Konsentrasi sangat kecil (&lt; 10<sup>−6</sup> M), ionisasi air tidak boleh diabaikan: '+oh+' = (C + √(C² + 4'+KwS+'))/2 = '+sci(o)+' M'); notes.push('Larutan basa yang sangat encer tidak pernah mencapai pH di bawah 7.');}
+  st.push('pOH = −log '+oh+' = '+pHf(-lg(o)));
+  st.push('pH = 14 − pOH = '+pHf(14+lg(o)));
+  return rO(o,st,'Basa kuat',{notes});
+}
+function weakAcid(M,Ka){
+  const h=Math.sqrt(Ka*M), al=h/M, st=[], notes=[];
+  st.push('Asam lemah terionisasi sebagian: HA ⇌ H<sup>+</sup> + A<sup>−</sup>');
+  st.push(hp+' = √('+KaS+' × M) = √('+sci(Ka)+' × '+sci(M)+') = '+sci(h)+' M');
+  st.push('pH = −log '+hp+' = '+pHf(-lg(h)));
+  st.push('Derajat ionisasi α = √('+KaS+'/M) = '+sci(al*100)+' %');
+  const ex=exactPH({type:'acid',kind:'W',M,K:Ka},0);
+  if(Math.abs(ex+lg(h))>0.02) notes.push('Pendekatan √('+KaS+'·M) kurang tepat di sini (α &gt; 5 % atau larutan sangat encer). Perhitungan eksak tanpa pendekatan memberi pH = '+pHf(ex)+'.');
+  return rH(h,st,'Asam lemah',{notes});
+}
+function weakBase(M,Kb){
+  const o=Math.sqrt(Kb*M), al=o/M, st=[], notes=[];
+  st.push('Basa lemah terionisasi sebagian: B + H<sub>2</sub>O ⇌ BH<sup>+</sup> + OH<sup>−</sup>');
+  st.push(oh+' = √('+KbS+' × M) = √('+sci(Kb)+' × '+sci(M)+') = '+sci(o)+' M');
+  st.push('pOH = −log '+oh+' = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)));
+  st.push('Derajat ionisasi α = √('+KbS+'/M) = '+sci(al*100)+' %');
+  const ex=exactPH({type:'base',kind:'W',M,K:Kb},0);
+  if(Math.abs(ex-(14+lg(o)))>0.02) notes.push('Pendekatan √('+KbS+'·M) kurang tepat di sini (α &gt; 5 % atau larutan sangat encer). Perhitungan eksak tanpa pendekatan memberi pH = '+pHf(ex)+'.');
+  return rO(o,st,'Basa lemah',{notes});
+}
+function single(type,kind,M,n,K){
+  if(type==='acid')return kind==='S'?strongAcid(M,n):weakAcid(M,K);
+  return kind==='S'?strongBase(M,n):weakBase(M,K);
+}
+function mrsTable(cols,rows){
+  return '<div class="scroll"><table class="mrs"><thead><tr><th></th>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>'+
+   rows.map(r=>'<tr><th>'+r[0]+'</th>'+r.slice(1).map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+}
+
+/* Reaksi asam (A) + basa (B). A,B = {k:'S'|'W', M, V(mL), n(valensi, kuat), K(lemah)} */
+function mixAB(A,B){
+  const Vt=A.V+B.V, st=[], T=sci;
+  const nH=A.M*A.V*(A.k==='S'?A.n:1), nO=B.M*B.V*(B.k==='S'?B.n:1);
+  if(nH<=0&&nO<=0)throw new Error('Jumlah zat nol.');
+  if(nO<=0)return single('acid',A.k,A.M*A.V/Vt,A.n,A.K);
+  if(nH<=0)return single('base',B.k,B.M*B.V/Vt,B.n,B.K);
+  st.push(A.k==='S'?'Mol H<sup>+</sup> = M × V × valensi = '+T(A.M)+' × '+T(A.V)+' × '+A.n+' = '+T(nH)+' mmol':'Mol asam lemah (HA) = M × V = '+T(A.M)+' × '+T(A.V)+' = '+T(nH)+' mmol');
+  st.push(B.k==='S'?'Mol OH<sup>−</sup> = M × V × valensi = '+T(B.M)+' × '+T(B.V)+' × '+B.n+' = '+T(nO)+' mmol':'Mol basa lemah (B) = M × V = '+T(B.M)+' × '+T(B.V)+' = '+T(nO)+' mmol');
+  const r=Math.min(nH,nO), eps=1e-9*Math.max(nH,nO), eq=Math.abs(nH-nO)<=eps;
+  const table=mrsTable([A.k==='S'?'H<sup>+</sup>':'HA',B.k==='S'?'OH<sup>−</sup>':'B','Garam'],
+    [['Mula-mula (mmol)',T(nH),T(nO),'–'],['Bereaksi','−'+T(r),'−'+T(r),'+'+T(r)],['Sisa',eq||nH<nO?'0':T(nH-r),eq||nO<nH?'0':T(nO-r),T(r)]]);
+  st.push('Reaksi berlangsung stoikiometris (pereaksi pembatas habis), lihat tabel mol di atas. Volume total = '+T(A.V)+' + '+T(B.V)+' = '+T(Vt)+' mL');
+  const fin=(x,cat,extra)=>Object.assign(x,{table,cat},extra||{});
+
+  if(A.k==='S'&&B.k==='S'){
+    if(eq){st.push('Mol H<sup>+</sup> = mol OH<sup>−</sup>: keduanya habis. Garam dari asam kuat + basa kuat tidak terhidrolisis.');st.push('pH = 7');return fin(rH(1e-7,st,'Netral · garam tidak terhidrolisis'),'neutral');}
+    if(nH>nO){const h=(nH-nO)/Vt;st.push('Tersisa asam kuat: '+hp+' = sisa mol H<sup>+</sup> / V total = '+T(nH-nO)+' / '+T(Vt)+' = '+T(h)+' M');st.push('pH = −log '+hp+' = '+pHf(-lg(h)));return fin(rH(h,st,'Sisa asam kuat'),'excessH');}
+    const o=(nO-nH)/Vt;st.push('Tersisa basa kuat: '+oh+' = sisa mol OH<sup>−</sup> / V total = '+T(nO-nH)+' / '+T(Vt)+' = '+T(o)+' M');st.push('pOH = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)));return fin(rO(o,st,'Sisa basa kuat'),'excessOH');
+  }
+  if(A.k==='W'&&B.k==='S'){
+    const Ka=A.K;
+    if(eq){const G=nH/Vt,o=Math.sqrt(KW/Ka*G);
+      st.push('Asam lemah dan basa kuat habis bereaksi, tersisa garam. Anion garam (basa konjugat) terhidrolisis: A<sup>−</sup> + H<sub>2</sub>O ⇌ HA + OH<sup>−</sup>');
+      st.push('[Garam] = '+T(nH)+' mmol / '+T(Vt)+' mL = '+T(G)+' M');
+      st.push(oh+' = √('+KwS+'/'+KaS+' × [garam]) = √(('+T(KW)+' / '+T(Ka)+') × '+T(G)+') = '+T(o)+' M');
+      st.push('pOH = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)));
+      return fin(rO(o,st,'Hidrolisis garam · bersifat basa'),'hydro');}
+    if(nO<nH){const h=Ka*(nH-nO)/nO;
+      st.push('Basa kuat habis. Tersisa asam lemah '+T(nH-nO)+' mmol dan garamnya (basa konjugat) '+T(nO)+' mmol, jadi campuran ini adalah larutan penyangga (buffer) asam.');
+      st.push(hp+' = '+KaS+' × (mol asam lemah / mol garam) = '+T(Ka)+' × ('+T(nH-nO)+' / '+T(nO)+') = '+T(h)+' M');
+      st.push('pH = −log '+hp+' = '+pHf(-lg(h))+' (sama dengan pK<sub>a</sub> + log [garam]/[asam])');
+      return fin(rH(h,st,'Larutan penyangga asam'),'buffer',{buffer:{type:'acid',nW:nH-nO,nC:nO,K:Ka,Vt}});}
+    const o=(nO-nH)/Vt;st.push('Tersisa basa kuat; pH ditentukan oleh sisa OH<sup>−</sup> (hidrolisis garam diabaikan): '+oh+' = '+T(nO-nH)+' / '+T(Vt)+' = '+T(o)+' M');st.push('pOH = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)));return fin(rO(o,st,'Sisa basa kuat'),'excessOH');
+  }
+  if(A.k==='S'&&B.k==='W'){
+    const Kb=B.K;
+    if(eq){const G=nO/Vt,h=Math.sqrt(KW/Kb*G);
+      st.push('Asam kuat dan basa lemah habis bereaksi, tersisa garam. Kation garam (asam konjugat) terhidrolisis: BH<sup>+</sup> + H<sub>2</sub>O ⇌ B + H<sub>3</sub>O<sup>+</sup>');
+      st.push('[Garam] = '+T(nO)+' mmol / '+T(Vt)+' mL = '+T(G)+' M');
+      st.push(hp+' = √('+KwS+'/'+KbS+' × [garam]) = √(('+T(KW)+' / '+T(Kb)+') × '+T(G)+') = '+T(h)+' M');
+      st.push('pH = −log '+hp+' = '+pHf(-lg(h)));
+      return fin(rH(h,st,'Hidrolisis garam · bersifat asam'),'hydro');}
+    if(nH<nO){const o=Kb*(nO-nH)/nH;
+      st.push('Asam kuat habis. Tersisa basa lemah '+T(nO-nH)+' mmol dan garamnya (asam konjugat) '+T(nH)+' mmol, jadi campuran ini adalah larutan penyangga (buffer) basa.');
+      st.push(oh+' = '+KbS+' × (mol basa lemah / mol garam) = '+T(Kb)+' × ('+T(nO-nH)+' / '+T(nH)+') = '+T(o)+' M');
+      st.push('pOH = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)));
+      return fin(rO(o,st,'Larutan penyangga basa'),'buffer',{buffer:{type:'base',nW:nO-nH,nC:nH,K:Kb,Vt}});}
+    const h=(nH-nO)/Vt;st.push('Tersisa asam kuat; pH ditentukan oleh sisa H<sup>+</sup> (hidrolisis garam diabaikan): '+hp+' = '+T(nH-nO)+' / '+T(Vt)+' = '+T(h)+' M');st.push('pH = −log '+hp+' = '+pHf(-lg(h)));return fin(rH(h,st,'Sisa asam kuat'),'excessH');
+  }
+  const Ka=A.K,Kb=B.K;
+  if(eq){const p=7+0.5*(-lg(Ka))-0.5*(-lg(Kb));
+    st.push('Asam lemah dan basa lemah habis bereaksi. Garam yang terbentuk terhidrolisis total (kation dan anion bereaksi dengan air).');
+    st.push('pH = 7 + ½ pK<sub>a</sub> − ½ pK<sub>b</sub> = 7 + ½('+pHf(-lg(Ka))+') − ½('+pHf(-lg(Kb))+') = '+pHf(p));
+    st.push('Nilai ini tidak bergantung pada konsentrasi garam.');
+    return fin(rH(Math.pow(10,-p),st,'Hidrolisis total · '+(Ka>Kb?'bersifat asam (Ka > Kb)':Ka<Kb?'bersifat basa (Ka < Kb)':'netral (Ka = Kb)')),'hydro');}
+  if(nH>nO){const h=Ka*(nH-nO)/nO;
+    st.push('Basa lemah habis. Tersisa asam lemah '+T(nH-nO)+' mmol bersama garamnya '+T(nO)+' mmol.');
+    st.push(hp+' = '+KaS+' × (mol asam lemah sisa / mol garam) = '+T(Ka)+' × ('+T(nH-nO)+' / '+T(nO)+') = '+T(h)+' M');
+    st.push('pH = −log '+hp+' = '+pHf(-lg(h)));
+    return fin(rH(h,st,'Asam lemah sisa + garam (pendekatan penyangga)',{notes:['Pendekatan: pengaruh asam konjugat dari basa lemah diabaikan.']}),'weakweak');}
+  const o=Kb*(nO-nH)/nH;
+  st.push('Asam lemah habis. Tersisa basa lemah '+T(nO-nH)+' mmol bersama garamnya '+T(nH)+' mmol.');
+  st.push(oh+' = '+KbS+' × (mol basa lemah sisa / mol garam) = '+T(Kb)+' × ('+T(nO-nH)+' / '+T(nH)+') = '+T(o)+' M');
+  st.push('pOH = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)));
+  return fin(rO(o,st,'Basa lemah sisa + garam (pendekatan penyangga)',{notes:['Pendekatan: pengaruh basa konjugat dari asam lemah diabaikan.']}),'weakweak');
+}
+
+/* ---- Titrasi. c={type:'acid'|'base',kind,M,V,n,K,Mt,nt} ---- */
+function titrVe(c){return c.M*c.V*(c.kind==='S'?c.n:1)/(c.Mt*c.nt)}
+function titrPoint(c,Vt){
+  if(Vt<=1e-12){const r=single(c.type,c.kind,c.M,c.n,c.K);r.label='Sebelum titran ditambahkan · '+r.label.toLowerCase();return r;}
+  const an={k:c.kind,M:c.M,V:c.V,n:c.n,K:c.K}, tt={k:'S',M:c.Mt,V:Vt,n:c.nt};
+  return c.type==='acid'?mixAB(an,tt):mixAB(tt,an);
+}
+function exactAt(c,Vt){
+  const Vtot=c.V+Vt;
+  return exactPH({type:c.type,kind:c.kind,M:c.M*c.V/Vtot,n:c.n,K:c.K},c.Mt*c.nt*Vt/Vtot);
+}
+function titrCurve(c,N=360){
+  const Ve=titrVe(c), pts=[];
+  for(let i=0;i<=N;i++){const t=-1+2*i/N, x=1+Math.sign(t)*Math.pow(Math.abs(t),2.4), v=x*Ve; pts.push({v,pH:exactAt(c,v)});}
+  return pts;
+}
+function indStatus(c,ind){
+  const Ve=titrVe(c), a=exactAt(c,0.99*Ve), b=exactAt(c,1.01*Ve), lo=Math.min(a,b), hi=Math.max(a,b);
+  const ov=Math.max(0,Math.min(hi,ind.hi)-Math.max(lo,ind.lo)), f=ov/(ind.hi-ind.lo);
+  return {frac:f,txt:f>=0.7?'cocok':f>=0.3?'cukup':'tidak cocok',cls:f>=0.7?'good':f>=0.3?'mid':'no',lo,hi};
+}
+function indRGBA(ind,p){
+  if(!ind)return 'rgba(120,170,210,.35)';
+  const t=Math.min(1,Math.max(0,(p-ind.lo)/(ind.hi-ind.lo))), c=ind.a.map((v,i)=>v+(ind.b[i]-v)*t);
+  return 'rgba('+(c[0]|0)+','+(c[1]|0)+','+(c[2]|0)+','+c[3].toFixed(2)+')';
+}
+
+/* ---- Penyangga ---- */
+function bufPH(b,nW,nC){return b.type==='acid'?-lg(b.K)+lg(nC/nW):14-(-lg(b.K)+lg(nC/nW))}
+function bufAdd(b,dAcid,dBase){ // mmol H+ / OH- kuat ditambahkan
+  let nW=b.nW,nC=b.nC;
+  if(b.type==='acid'){nC-=dAcid;nW+=dAcid;nW-=dBase;nC+=dBase;
+    if(nC<=0)return{pH:-lg((dAcid-b.nC+(dBase>0?0:0))/b.Vt),out:true};
+    if(nW<=0)return{pH:14+lg((dBase-b.nW)/b.Vt),out:true};
+  }else{nW-=dAcid;nC+=dAcid;nC-=dBase;nW+=dBase;
+    if(nW<=0)return{pH:-lg((dAcid-b.nW)/b.Vt),out:true};
+    if(nC<=0)return{pH:14+lg((dBase-b.nC)/b.Vt),out:true};
+  }
+  return{pH:bufPH(b,nW,nC),out:false};
+}
+</script>
+
+<script>
+/* ================= ANTARMUKA ================= */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+class UErr extends Error{}
+function val(id,label,o){const z=o&&o.zero;const v=parseNum($('#'+id).value);if(!isFinite(v)||(z?v<0:v<=0))throw new UErr('Isi “'+label+'” dengan angka '+(z?'nol atau positif':'positif')+'.');return v}
+const show=(id,f)=>{const e=$('#'+id);if(e)e.hidden=!f};
+const opt=(l,s)=>l.map(([v,t])=>'<option value="'+v+'"'+(String(v)===String(s)?' selected':'')+'>'+t+'</option>').join('');
+const fS=(id,label,l,s)=>'<div class="f"><label for="'+id+'">'+label+'</label><select id="'+id+'">'+opt(l,s)+'</select></div>';
+const fI=(id,label,v,u,h)=>'<div class="f"><label for="'+id+'">'+label+'</label><div class="in"><input id="'+id+'" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="'+v+'">'+(u?'<span class="u">'+u+'</span>':'')+'</div>'+(h?'<small>'+h+'</small>':'')+'</div>';
+const presetOpts=p=>'<option value="">Pilih zat contoh…</option>'+p.map(([n,k])=>'<option value="'+k+'">'+n+'</option>').join('');
+const fK=(id,label,p,d)=>'<div class="f"><label for="'+id+'" data-kl>'+label+'</label><select id="'+id+'-p" aria-label="Pilih zat contoh">'+presetOpts(p)+'</select><div class="in"><input id="'+id+'" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="'+d+'"></div></div>';
+const setK=(id,label,p)=>{$('#'+id+'-p').innerHTML=presetOpts(p);$('#'+id).closest('.f').querySelector('[data-kl]').textContent=label;$('#'+id).value=p[0][1]};
+const nSel=(id,label,sel)=>fS(id,label,[[1,'1 · mis. HCl, NaOH'],[2,'2 · mis. H₂SO₄, Ca(OH)₂'],[3,'3 · mis. Al(OH)₃, H₃PO₄']],sel||1);
+
+function phBar(p){
+  const x=Math.min(14,Math.max(0,p))/14*100;
+  return '<div class="phbar" role="img" aria-label="Posisi pH '+pHf(p)+' pada skala 0 sampai 14"><i style="left:'+x+'%"></i><span style="left:0%">0</span><span style="left:50%">7</span><span style="left:100%">14</span></div>';
+}
+function renderResult(box,r){
+  const c=phClass(r.pH);
+  box.innerHTML='<div class="res-head"><div><div class="k">pH</div><div class="ph">'+pHf(r.pH)+'</div></div><div class="pill '+c.c+'">'+c.t+'</div></div>'+
+   (r.label?'<p class="what">'+r.label+'</p>':'')+phBar(r.pH)+
+   '<dl class="stats"><div><dt>pOH</dt><dd>'+pHf(14-r.pH)+'</dd></div><div><dt>[H⁺]</dt><dd>'+sci(r.H)+' M</dd></div><div><dt>[OH⁻]</dt><dd>'+sci(r.OH)+' M</dd></div></dl>'+
+   (r.table||'')+'<h3>Langkah penyelesaian</h3><ol class="steps">'+r.steps.map(s=>'<li>'+s+'</li>').join('')+'</ol>'+
+   (r.notes||[]).map(n=>'<p class="note">'+n+'</p>').join('');
+}
+const renderError=(box,m)=>{box.innerHTML='<p class="err">'+m+'</p>'};
+function safe(box,fn){try{fn()}catch(e){if(e instanceof UErr||e.message)renderError(box,e instanceof UErr?e.message:'Perhitungan tidak dapat dilakukan: '+e.message);else throw e}}
+
+/* ---------- Tab 1: Asam / Basa ---------- */
+function abHTML(){return '<div class="panel"><div class="card"><h2>Larutan tunggal</h2>'+
+ fS('ab-t','Jenis larutan',[['SA','Asam kuat (HCl, HNO₃, H₂SO₄)'],['WA','Asam lemah (CH₃COOH, HCN, HF)'],['SB','Basa kuat (NaOH, KOH, Ca(OH)₂)'],['WB','Basa lemah (NH₃, CH₃NH₂)']],'SA')+
+ fI('ab-M','Konsentrasi (M)','0,01','M')+
+ '<div id="ab-nw">'+nSel('ab-n','Valensi (jumlah H⁺ atau OH⁻ per rumus)')+'</div>'+
+ '<div id="ab-kw" hidden>'+fK('ab-K','Ka (tetapan ionisasi asam)',ACIDS,'1.8e-5')+'</div>'+
+ '<details><summary>Pengenceran (opsional)</summary>'+fI('ab-V','Volume larutan awal (mL)','100','mL')+fI('ab-W','Air yang ditambahkan (mL)','0','mL','Isi lebih dari 0 untuk melihat pH setelah diencerkan.')+'</details>'+
+ '</div><div class="card" id="ab-out" aria-live="polite"></div></div>';}
+function abSync(){const t=$('#ab-t').value,w=t[0]==='W';show('ab-nw',!w);show('ab-kw',w);
+  if(w){const a=t[1]==='A';const cur=$('#ab-K').dataset.t;if(cur!==t){$('#ab-K').dataset.t=t;setK('ab-K',a?'Ka (tetapan ionisasi asam)':'Kb (tetapan ionisasi basa)',a?ACIDS:BASES);}}}
+function abCalc(){abSync();const box=$('#ab-out');safe(box,()=>{
+  const t=$('#ab-t').value,kind=t[0],type=t[1]==='A'?'acid':'base';
+  const M=val('ab-M','Konsentrasi'),n=kind==='S'?+$('#ab-n').value:1,K=kind==='W'?val('ab-K','Tetapan ionisasi'):null;
+  const W=parseNum($('#ab-W').value);
+  if(isFinite(W)&&W>0){
+    const V=val('ab-V','Volume larutan awal'),M2=M*V/(V+W),r0=single(type,kind,M,n,K),r=single(type,kind,M2,n,K);
+    r.steps.unshift('Pengenceran: M<sub>2</sub> = M<sub>1</sub> × V<sub>1</sub> / (V<sub>1</sub> + V<sub>air</sub>) = '+sci(M)+' × '+sci(V)+' / ('+sci(V)+' + '+sci(W)+') = '+sci(M2)+' M');
+    r.notes=(r.notes||[]).concat(['pH sebelum pengenceran '+pHf(r0.pH)+', sesudah '+pHf(r.pH)+' (berubah '+pHf(Math.abs(r.pH-r0.pH))+' satuan). Pengenceran asam/basa kuat 10× mengubah pH 1 satuan; asam/basa lemah hanya sekitar 0,5 satuan.']);
+    renderResult(box,r);
+  }else renderResult(box,single(type,kind,M,n,K));
+});}
+
+/* ---------- Tab 2: Campuran ---------- */
+const solBlock=(p,title,weak,acid)=>'<div class="blk" id="'+p+'-blk"><h3>'+title+'</h3>'+
+ (weak?fS(p+'-k','Jenis',[['S','Kuat'],['W','Lemah']],'S'):'')+
+ fI(p+'-M','Konsentrasi (M)','0,1','M')+fI(p+'-V','Volume (mL)','50','mL')+
+ '<div id="'+p+'-nw">'+nSel(p+'-n','Valensi')+'</div>'+
+ (weak?'<div id="'+p+'-kw" hidden>'+fK(p+'-K',acid?'Ka':'Kb',acid?ACIDS:BASES,'1.8e-5')+'</div>':'')+'</div>';
+const solKind=p=>{const k=$('#'+p+'-k');return(!k||k.closest('.f').hidden)?'S':k.value};
+function solRead(p,lab){
+  const kind=solKind(p);
+  return{k:kind,M:val(p+'-M','Konsentrasi '+lab),V:val(p+'-V','Volume '+lab),n:kind==='S'?+$('#'+p+'-n').value:1,K:kind==='W'?val(p+'-K','Tetapan '+lab):null};
+}
+function cmHTML(){return '<div class="panel"><div class="card"><h2>Pencampuran larutan</h2>'+
+ fS('cm-m','Jenis campuran',[['ab','Asam + basa (netralisasi)'],['aa','Asam kuat + asam kuat'],['bb','Basa kuat + basa kuat']],'ab')+
+ solBlock('ca','Larutan asam',true,true)+solBlock('cc','Larutan asam kedua',false,true)+
+ solBlock('cb','Larutan basa',true,false)+solBlock('cd','Larutan basa kedua',false,false)+
+ '</div><div class="card" id="cm-out" aria-live="polite"></div></div>';}
+function cmSync(){
+  const m=$('#cm-m').value;
+  show('ca-blk',m!=='bb');show('cc-blk',m==='aa');show('cb-blk',m!=='aa');show('cd-blk',m==='bb');
+  $('#ca-k').closest('.f').hidden=(m==='aa');$('#cb-k').closest('.f').hidden=(m==='bb');
+  ['ca','cb'].forEach(p=>{const w=solKind(p)==='W';show(p+'-nw',!w);show(p+'-kw',w)});
+  ['cc','cd'].forEach(p=>show(p+'-nw',true));
+}
+function cmCalc(){cmSync();const box=$('#cm-out'),m=$('#cm-m').value;safe(box,()=>{
+  if(m==='ab'){renderResult(box,mixAB(solRead('ca','asam'),solRead('cb','basa')));return;}
+  const ac=m==='aa',p1=ac?'ca':'cb',p2=ac?'cc':'cd',s1=solRead(p1,'1'),s2=solRead(p2,'2');
+  const n1=s1.M*s1.V*s1.n,n2=s2.M*s2.V*s2.n,Vt=s1.V+s2.V,C=(n1+n2)/Vt,X=ac?'H<sup>+</sup>':'OH<sup>−</sup>',Xb=ac?hp:oh,st=[];
+  st.push('Mol '+X+' larutan 1 = '+sci(s1.M)+' × '+sci(s1.V)+' × '+s1.n+' = '+sci(n1)+' mmol');
+  st.push('Mol '+X+' larutan 2 = '+sci(s2.M)+' × '+sci(s2.V)+' × '+s2.n+' = '+sci(n2)+' mmol');
+  st.push(Xb+' campuran = (mol 1 + mol 2) / (V<sub>1</sub> + V<sub>2</sub>) = '+sci(n1+n2)+' / '+sci(Vt)+' = '+sci(C)+' M');
+  if(ac){st.push('pH = −log '+hp+' = '+pHf(-lg(C)));renderResult(box,rH(C,st,'Campuran dua asam kuat'));}
+  else{st.push('pOH = '+pHf(-lg(C))+', maka pH = 14 − pOH = '+pHf(14+lg(C)));renderResult(box,rO(C,st,'Campuran dua basa kuat'));}
+});}
+
+/* ---------- Tab 3: Hidrolisis ---------- */
+function hyHTML(){return '<div class="panel"><div class="card"><h2>Hidrolisis garam</h2>'+
+ fS('hy-t','Garam berasal dari',[['AB','Asam lemah + basa kuat (CH₃COONa)'],['KB','Asam kuat + basa lemah (NH₄Cl)'],['LL','Asam lemah + basa lemah (CH₃COONH₄)'],['KK','Asam kuat + basa kuat (NaCl)']],'AB')+
+ fI('hy-M','Konsentrasi garam (M)','0,1','M')+
+ '<div id="hy-nw">'+fS('hy-n','Jumlah ion lemah per rumus garam',[[1,'1 · mis. CH₃COONa, NH₄Cl'],[2,'2 · mis. (CH₃COO)₂Ca, (NH₄)₂SO₄']],1)+'</div>'+
+ '<div id="hy-aw">'+fK('hy-Ka','Ka asam lemah',ACIDS,'1.8e-5')+'</div>'+
+ '<div id="hy-bw" hidden>'+fK('hy-Kb','Kb basa lemah',BASES,'1.8e-5')+'</div>'+
+ '<p class="sub">Garam dari asam kuat dan basa kuat tidak terhidrolisis, pH = 7. Untuk garam hasil pencampuran asam dan basa, gunakan tab Campuran.</p>'+
+ '</div><div class="card" id="hy-out" aria-live="polite"></div></div>';}
+function hyCalc(){const box=$('#hy-out');const t=$('#hy-t').value;
+  show('hy-nw',t==='AB'||t==='KB');show('hy-aw',t==='AB'||t==='LL');show('hy-bw',t==='KB'||t==='LL');
+  safe(box,()=>{
+  const M=val('hy-M','Konsentrasi garam'),n=(t==='AB'||t==='KB')?+$('#hy-n').value:1;let r;
+  if(t==='AB'){const Ka=val('hy-Ka','Ka'),C=n*M,Kh=KW/Ka,o=Math.sqrt(Kh*C),hh=Math.sqrt(Kh/C);
+    r=rO(o,['Garam dari asam lemah + basa kuat: hanya anion (A<sup>−</sup>) yang bereaksi dengan air. A<sup>−</sup> + H<sub>2</sub>O ⇌ HA + OH<sup>−</sup>',
+     '[A<sup>−</sup>] = jumlah ion × M garam = '+n+' × '+sci(M)+' = '+sci(C)+' M',
+     'K<sub>h</sub> = '+KwS+' / '+KaS+' = '+sci(KW)+' / '+sci(Ka)+' = '+sci(Kh),
+     oh+' = √(K<sub>h</sub> × [A<sup>−</sup>]) = √('+sci(Kh)+' × '+sci(C)+') = '+sci(o)+' M',
+     'pOH = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)),
+     'Derajat hidrolisis h = √(K<sub>h</sub> / [A<sup>−</sup>]) = '+sci(hh*100)+' %'],'Hidrolisis anion · garam bersifat basa');}
+  else if(t==='KB'){const Kb=val('hy-Kb','Kb'),C=n*M,Kh=KW/Kb,h=Math.sqrt(Kh*C),hh=Math.sqrt(Kh/C);
+    r=rH(h,['Garam dari asam kuat + basa lemah: hanya kation (BH<sup>+</sup>) yang bereaksi dengan air. BH<sup>+</sup> + H<sub>2</sub>O ⇌ B + H<sub>3</sub>O<sup>+</sup>',
+     '[BH<sup>+</sup>] = jumlah ion × M garam = '+n+' × '+sci(M)+' = '+sci(C)+' M',
+     'K<sub>h</sub> = '+KwS+' / '+KbS+' = '+sci(KW)+' / '+sci(Kb)+' = '+sci(Kh),
+     hp+' = √(K<sub>h</sub> × [BH<sup>+</sup>]) = √('+sci(Kh)+' × '+sci(C)+') = '+sci(h)+' M',
+     'pH = −log '+hp+' = '+pHf(-lg(h)),
+     'Derajat hidrolisis h = √(K<sub>h</sub> / [BH<sup>+</sup>]) = '+sci(hh*100)+' %'],'Hidrolisis kation · garam bersifat asam');}
+  else if(t==='LL'){const Ka=val('hy-Ka','Ka'),Kb=val('hy-Kb','Kb'),p=7+0.5*(-lg(Ka))-0.5*(-lg(Kb)),Kh=KW/(Ka*Kb);
+    r=rH(Math.pow(10,-p),['Kation dan anion garam sama-sama terhidrolisis, sehingga sifat larutan ditentukan oleh perbandingan K<sub>a</sub> dan K<sub>b</sub>.',
+     'pK<sub>a</sub> = '+pHf(-lg(Ka))+', pK<sub>b</sub> = '+pHf(-lg(Kb)),
+     hp+' = √('+KwS+' × '+KaS+' / '+KbS+')',
+     'pH = 7 + ½ pK<sub>a</sub> − ½ pK<sub>b</sub> = '+pHf(p),
+     'K<sub>h</sub> = '+KwS+' / ('+KaS+' × '+KbS+') = '+sci(Kh)+', h ≈ √K<sub>h</sub> = '+sci(Math.sqrt(Kh)*100)+' %. pH tidak bergantung pada konsentrasi garam.'],
+     'Hidrolisis total · '+(Ka>Kb?'asam (Ka > Kb)':Ka<Kb?'basa (Ka < Kb)':'netral (Ka = Kb)'));}
+  else r=rH(1e-7,['Kation berasal dari basa kuat dan anion dari asam kuat, keduanya tidak bereaksi dengan air.','Larutan netral, pH = 7.'],'Tidak terhidrolisis · netral');
+  renderResult(box,r);
+});}
+
+/* ---------- Tab 4: Penyangga ---------- */
+const PB={mode:'garam',buf:null};
+function pbHTML(){return '<div class="panel"><div class="card"><h2>Larutan penyangga</h2>'+
+ '<div class="seg" role="group" aria-label="Cara menghitung"><button type="button" data-pbm="garam" aria-pressed="true">Lemah + garamnya</button><button type="button" data-pbm="rx" aria-pressed="false">Dari reaksi</button><button type="button" data-pbm="dz" aria-pressed="false">Rancang</button></div>'+
+ '<div id="pb-garam">'+fS('pw-t','Jenis penyangga',[['A','Asam lemah + garamnya (CH₃COOH + CH₃COONa)'],['B','Basa lemah + garamnya (NH₃ + NH₄Cl)']],'A')+
+  fK('pw-K','Ka asam lemah',ACIDS,'1.8e-5')+fI('pw-Mw','Konsentrasi zat lemah (M)','0,2','M')+fI('pw-Vw','Volume zat lemah (mL)','50','mL')+
+  fI('pw-Mg','Konsentrasi garam (M)','0,2','M')+fI('pw-Vg','Volume garam (mL)','50','mL')+
+  fS('pw-ng','Jumlah ion konjugat per rumus garam',[[1,'1 · CH₃COONa, NH₄Cl'],[2,'2 · (CH₃COO)₂Ca, (NH₄)₂SO₄']],1)+'</div>'+
+ '<div id="pb-rx" hidden>'+fS('pr-t','Pereaksi',[['WA','Asam lemah + basa kuat (basa kuat kurang)'],['WB','Basa lemah + asam kuat (asam kuat kurang)']],'WA')+
+  fK('pr-K','Ka asam lemah',ACIDS,'1.8e-5')+fI('pr-Mw','Konsentrasi zat lemah (M)','0,2','M')+fI('pr-Vw','Volume zat lemah (mL)','50','mL')+
+  fI('pr-Ms','Konsentrasi zat kuat (M)','0,1','M')+fI('pr-Vs','Volume zat kuat (mL)','50','mL')+nSel('pr-ns','Valensi zat kuat')+'</div>'+
+ '<div id="pb-dz" hidden>'+fS('pd-t','Jenis penyangga',[['A','Asam lemah + garamnya'],['B','Basa lemah + garamnya']],'A')+
+  fK('pd-K','Ka asam lemah',ACIDS,'1.8e-5')+fI('pd-pH','pH yang diinginkan','5,00')+fI('pd-C','Konsentrasi total (zat lemah + garam) (M)','0,2','M')+fI('pd-V','Volume penyangga (mL)','100','mL')+'</div>'+
+ '</div><div class="stack"><div class="card" id="pb-out" aria-live="polite"></div>'+
+ '<div class="card" id="pb-add" hidden><h2>Uji ketahanan pH</h2><p class="sub">Tambahkan asam kuat atau basa kuat, lalu bandingkan dengan air murni.</p>'+
+  '<div class="panel" style="margin:0">'+fI('ad-a','Asam kuat ditambahkan','0,5','mmol H⁺')+fI('ad-b','Basa kuat ditambahkan','0,5','mmol OH⁻')+'</div>'+
+  '<div id="ad-out"></div></div></div></div>';}
+function pbSync(){const m=PB.mode;show('pb-garam',m==='garam');show('pb-rx',m==='rx');show('pb-dz',m==='dz');
+  $$('[data-pbm]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.pbm===m));
+  const sync=(sel,kid,lbl)=>{const e=$('#'+sel);const a=e.value;const k=$('#'+kid);if(k.dataset.t!==a){k.dataset.t=a;setK(kid,a==='A'||a==='WA'?'Ka asam lemah':'Kb basa lemah',a==='A'||a==='WA'?ACIDS:BASES);}};
+  sync('pw-t','pw-K');sync('pr-t','pr-K');sync('pd-t','pd-K');}
+function pbCalc(){pbSync();const box=$('#pb-out');PB.buf=null;
+  safe(box,()=>{
+  const m=PB.mode;let r;
+  if(m==='garam'){
+    const a=$('#pw-t').value==='A',K=val('pw-K',a?'Ka':'Kb'),Mw=val('pw-Mw','Konsentrasi zat lemah'),Vw=val('pw-Vw','Volume zat lemah'),Mg=val('pw-Mg','Konsentrasi garam'),Vg=val('pw-Vg','Volume garam'),ng=+$('#pw-ng').value;
+    const nW=Mw*Vw,nC=ng*Mg*Vg,Vt=Vw+Vg,st=[];
+    st.push('Mol '+(a?'asam lemah (HA)':'basa lemah (B)')+' = '+sci(Mw)+' × '+sci(Vw)+' = '+sci(nW)+' mmol');
+    st.push('Mol '+(a?'basa konjugat (A<sup>−</sup>)':'asam konjugat (BH<sup>+</sup>)')+' dari garam = '+ng+' × '+sci(Mg)+' × '+sci(Vg)+' = '+sci(nC)+' mmol');
+    const ratio=nC/nW;
+    if(a){const h=K*nW/nC;st.push(hp+' = '+KaS+' × mol asam / mol basa konjugat = '+sci(K)+' × '+sci(nW)+' / '+sci(nC)+' = '+sci(h)+' M');st.push('pH = −log '+hp+' = '+pHf(-lg(h))+', atau pH = pK<sub>a</sub> + log ('+sci(nC)+' / '+sci(nW)+')');r=rH(h,st,'Penyangga asam · rasio garam/asam = '+sci(ratio));}
+    else{const o=K*nW/nC;st.push(oh+' = '+KbS+' × mol basa / mol asam konjugat = '+sci(K)+' × '+sci(nW)+' / '+sci(nC)+' = '+sci(o)+' M');st.push('pOH = '+pHf(-lg(o))+', maka pH = 14 − pOH = '+pHf(14+lg(o)));r=rO(o,st,'Penyangga basa · rasio garam/basa = '+sci(ratio));}
+    if(ratio<0.1||ratio>10)r.notes=['Rasio komponen di luar 0,1 sampai 10, sehingga kemampuan penyangga rendah terhadap salah satu arah penambahan asam atau basa.'];
+    PB.buf={type:a?'acid':'base',nW,nC,K,Vt};
+  }else if(m==='rx'){
+    const wa=$('#pr-t').value==='WA',K=val('pr-K',wa?'Ka':'Kb'),W={k:'W',M:val('pr-Mw','Konsentrasi zat lemah'),V:val('pr-Vw','Volume zat lemah'),K},S={k:'S',M:val('pr-Ms','Konsentrasi zat kuat'),V:val('pr-Vs','Volume zat kuat'),n:+$('#pr-ns').value};
+    r=wa?mixAB(W,S):mixAB(S,W);
+    if(r.cat==='buffer')PB.buf=r.buffer;
+    else r.notes=(r.notes||[]).concat(['Campuran ini bukan larutan penyangga ('+r.label.toLowerCase()+'). Penyangga terbentuk jika zat kuat habis dan zat lemah bersisa. Kurangi jumlah zat kuat.']);
+  }else{
+    const a=$('#pd-t').value==='A',K=val('pd-K',a?'Ka':'Kb'),pH=val('pd-pH','pH'),C=val('pd-C','Konsentrasi total'),V=val('pd-V','Volume'),pK=-lg(K),st=[];
+    const target=a?pH:14-pH,ratio=Math.pow(10,target-pK),tot=C*V,nW=tot/(1+ratio),nC=tot-nW;
+    st.push(a?'pH = pK<sub>a</sub> + log ([garam]/[asam]), dengan pK<sub>a</sub> = '+pHf(pK):'pOH = 14 − pH = '+pHf(14-pH)+'; pOH = pK<sub>b</sub> + log ([garam]/[basa]), dengan pK<sub>b</sub> = '+pHf(pK));
+    st.push('log ([garam]/['+(a?'asam':'basa')+']) = '+pHf(target)+' − '+pHf(pK)+' = '+pHf(target-pK)+', maka rasio garam : '+(a?'asam':'basa')+' = '+sci(ratio)+' : 1');
+    st.push('Total mol = '+sci(C)+' × '+sci(V)+' = '+sci(tot)+' mmol, terbagi menjadi '+(a?'asam lemah':'basa lemah')+' = '+sci(nW)+' mmol dan garam = '+sci(nC)+' mmol');
+    r=rH(Math.pow(10,-pH),st,'Rancangan penyangga');
+    r.notes=[(Math.abs(target-pK)<=1?'pH target berada dalam rentang pK ± 1, jadi pilihan zat ini baik sebagai penyangga.':'pH target berada di luar rentang pK ± 1. Pilih pasangan zat dengan '+(a?'pK<sub>a</sub>':'pK<sub>b</sub>')+' lebih dekat ke nilai target.')];
+    PB.buf=null;
+  }
+  renderResult(box,r);
+  });
+  show('pb-add',!!PB.buf);if(PB.buf)adCalc();
+}
+function adCalc(){const box=$('#ad-out'),b=PB.buf;if(!b)return;
+  const a=Math.max(0,parseNum($('#ad-a').value)||0),d=Math.max(0,parseNum($('#ad-b').value)||0),p0=bufPH(b,b.nW,b.nC);
+  const rA=bufAdd(b,a,0),rB=bufAdd(b,0,d),wA=a>0?-lg(a/b.Vt):7,wB=d>0?14+lg(d/b.Vt):7;
+  const dl=x=>{const v=Math.round(x*100)/100;return(v>0?'+':'')+pHf(v)};
+  box.innerHTML='<div class="scroll"><table><thead><tr><th>Perlakuan</th><th class="n">pH penyangga</th><th class="n">Perubahan</th><th class="n">pH air murni</th></tr></thead><tbody>'+
+   '<tr><th>Mula-mula</th><td class="n">'+pHf(p0)+'</td><td class="n">–</td><td class="n">7,00</td></tr>'+
+   '<tr><th>+ '+sci(a)+' mmol H⁺</th><td class="n">'+pHf(rA.pH)+'</td><td class="n">'+dl(rA.pH-p0)+'</td><td class="n">'+pHf(wA)+'</td></tr>'+
+   '<tr><th>+ '+sci(d)+' mmol OH⁻</th><td class="n">'+pHf(rB.pH)+'</td><td class="n">'+dl(rB.pH-p0)+'</td><td class="n">'+pHf(wB)+'</td></tr>'+
+   '<tr><th>Diencerkan (ditambah air)</th><td class="n">'+pHf(p0)+'</td><td class="n">0,00</td><td class="n">–</td></tr></tbody></table></div>'+
+   (rA.out||rB.out?'<p class="note">Kapasitas penyangga habis: komponen penetral sudah terpakai seluruhnya, sehingga pH berubah tajam.</p>':'<p class="note">pH penyangga hampir tetap karena rasio [garam]/[zat lemah] hanya bergeser sedikit. Pengenceran tidak mengubah rasio itu, jadi pH tetap (selama larutan tidak terlalu encer).</p>');
+}
+
+/* ---------- Tab 5: Titrasi ---------- */
+const TT={c:null,ve:0,curve:null};
+const INDOPT=[['none','Tanpa indikator']].concat(INDS.map(i=>[i.id,i.name+' (pH '+String(i.lo).replace('.',',')+'–'+String(i.hi).replace('.',',')+')']));
+function ttHTML(){return '<div class="panel"><div class="card"><h2>Kurva titrasi</h2>'+
+ fS('tt-t','Zat yang dititrasi (analit)',[['SA','Asam kuat (HCl)'],['WA','Asam lemah (CH₃COOH)'],['SB','Basa kuat (NaOH)'],['WB','Basa lemah (NH₃)']],'WA')+
+ fI('tt-M','Konsentrasi analit (M)','0,1','M')+fI('tt-V','Volume analit (mL)','25','mL')+
+ '<div id="tt-nw" hidden>'+nSel('tt-n','Valensi analit')+'</div>'+
+ '<div id="tt-kw">'+fK('tt-K','Ka asam lemah',ACIDS,'1.8e-5')+'</div>'+
+ '<p class="sub" id="tt-tl">Titran: basa kuat (mis. NaOH)</p>'+
+ fI('tt-Mt','Konsentrasi titran (M)','0,1','M')+fS('tt-nt','Valensi titran',[[1,'1 · NaOH atau HCl'],[2,'2 · Ba(OH)₂ atau H₂SO₄']],1)+
+ fS('tt-ind','Indikator',INDOPT,'pp')+
+ '</div><div class="card" id="tt-sum" aria-live="polite"></div></div>'+
+ '<div class="card" id="tt-chartcard" style="margin-bottom:16px"><h2>Kurva pH terhadap volume titran</h2>'+
+ '<div class="chart-grid"><div class="cwrap"><canvas id="tt-cv" aria-label="Kurva titrasi pH terhadap volume titran" role="img"></canvas></div>'+
+ '<div class="side"><svg viewBox="0 0 160 170" aria-hidden="true"><defs><clipPath id="fl"><path d="M62 14h36v50l40 74c4 8 0 18-10 18H32c-10 0-14-10-10-18l40-74z"/></clipPath></defs><rect id="tt-liq" x="0" y="84" width="160" height="90" clip-path="url(#fl)" fill="rgba(120,170,210,.35)"/><path d="M62 14h36v50l40 74c4 8 0 18-10 18H32c-10 0-14-10-10-18l40-74z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M56 14h48" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>'+
+ '<div class="k">pH labu</div><div class="meter" id="tt-ph">–</div><div class="what" id="tt-col" style="margin:0"></div></div></div>'+
+ '<div class="slide"><label for="tt-x" class="k">Volume titran ditambahkan</label><input type="range" id="tt-x" min="0" max="2" step="0.005" value="0.5"><output id="tt-vo" for="tt-x"></output>'+
+ '<div class="row"><button type="button" class="btn" data-ttx="0">0 mL</button><button type="button" class="btn" data-ttx="0.5">½ TE</button><button type="button" class="btn" data-ttx="1">Titik ekuivalen</button><button type="button" class="btn" data-ttx="2">2 × TE</button></div></div>'+
+ '<div id="tt-pt"></div></div>'+
+ '<div class="card" id="tt-tb"></div>';}
+function ttSync(){const t=$('#tt-t').value,w=t[0]==='W',a=t[1]==='A';show('tt-nw',!w);show('tt-kw',w);
+  $('#tt-tl').textContent=a?'Titran: basa kuat (mis. NaOH)':'Titran: asam kuat (mis. HCl)';
+  if(w&&$('#tt-K').dataset.t!==t){$('#tt-K').dataset.t=t;setK('tt-K',a?'Ka asam lemah':'Kb basa lemah',a?ACIDS:BASES);}}
+function ttRead(){const t=$('#tt-t').value,kind=t[0];
+  return{type:t[1]==='A'?'acid':'base',kind,M:val('tt-M','Konsentrasi analit'),V:val('tt-V','Volume analit'),n:kind==='S'?+$('#tt-n').value:1,K:kind==='W'?val('tt-K','Tetapan ionisasi'):null,Mt:val('tt-Mt','Konsentrasi titran'),nt:+$('#tt-nt').value};}
+const curInd=()=>INDS.find(i=>i.id===$('#tt-ind').value)||null;
+const mL=x=>sci(x,2)+' mL';
+function ttCalc(){ttSync();const sum=$('#tt-sum');
+  try{TT.c=ttRead();}catch(e){TT.c=null;renderError(sum,e.message);show('tt-chartcard',false);$('#tt-tb').hidden=true;return;}
+  show('tt-chartcard',true);$('#tt-tb').hidden=false;
+  const c=TT.c,Ve=titrVe(c);TT.ve=Ve;TT.curve=titrCurve(c);
+  const p0=titrPoint(c,0).pH,ph=titrPoint(c,Ve/2).pH,pe=titrPoint(c,Ve).pH,a=exactAt(c,0.99*Ve),b=exactAt(c,1.01*Ve);
+  const tn=c.type==='acid'?'basa':'asam';
+  let h='<div class="k">Titik ekuivalen</div><div class="ph" style="font-size:44px">'+sci(Ve)+' <span style="font-size:20px">mL</span></div>'+
+   '<p class="what">mol ekuivalen analit = mol ekuivalen titran: '+sci(c.M)+' × '+sci(c.V)+(c.kind==='S'?' × '+c.n:'')+' = '+sci(c.Mt)+' × V × '+c.nt+'</p>'+
+   '<dl class="stats"><div><dt>pH awal</dt><dd>'+pHf(p0)+'</dd></div><div><dt>pH di ½ TE</dt><dd>'+pHf(ph)+'</dd></div><div><dt>pH di TE</dt><dd>'+pHf(pe)+'</dd></div></dl>'+
+   (c.kind==='W'?'<p class="note">Pada ½ TE, [asam lemah] = [garam], sehingga pH = pK<sub>'+(c.type==='acid'?'a':'b')+'</sub> '+(c.type==='acid'?'= '+pHf(-lg(c.K)):': pOH = pK<sub>b</sub> = '+pHf(-lg(c.K))+', pH = '+pHf(14+lg(c.K)))+'.</p>':'')+
+   '<h3>Lonjakan pH (99 % sampai 101 % TE)</h3><p>pH naik dari '+pHf(Math.min(a,b))+' sampai '+pHf(Math.max(a,b))+'. Indikator yang baik berubah warna di dalam rentang ini.</p>'+
+   '<h3>Kecocokan indikator</h3><div class="chips">'+INDS.map(i=>{const s=indStatus(c,i);return '<span class="chip"><span class="sw" style="background:'+indRGBA(i,i.hi)+'"></span>'+i.name+' · <span class="'+s.cls+'">'+s.txt+'</span></span>'}).join('')+'</div>';
+  sum.innerHTML=h;
+  const fr=[0,0.25,0.5,0.9,0.99,1,1.01,1.1,1.5,2];
+  const rows=fr.map(f=>{const r=titrPoint(c,f*Ve);return '<tr><td class="n">'+sci(f*Ve)+'</td><td class="n">'+(f===1?'TE':Math.round(f*1000)/10+' %')+'</td><td>'+r.label+'</td><td class="n">'+pHf(r.pH)+'</td><td class="n">'+pHf(exactAt(c,f*Ve))+'</td></tr>'}).join('');
+  $('#tt-tb').innerHTML='<h2>Titik-titik penting</h2><div class="scroll"><table><thead><tr><th class="n">V titran (mL)</th><th class="n">% TE</th><th>Keadaan larutan</th><th class="n">pH rumus</th><th class="n">pH eksak</th></tr></thead><tbody>'+rows+'</tbody></table></div><p class="note">“pH rumus” memakai rumus buku (mol, penyangga, hidrolisis). “pH eksak” menyelesaikan keseimbangan muatan tanpa pendekatan; selisihnya kecil kecuali dekat titik ekuivalen.</p>';
+  ttUpdate();}
+function ttUpdate(){const c=TT.c;if(!c)return;
+  const x=+$('#tt-x').value,Vt=x*TT.ve,r=titrPoint(c,Vt),ex=exactAt(c,Vt),ind=curInd();
+  $('#tt-vo').textContent=sci(Vt)+' mL ('+Math.round(x*1000)/10+' % dari titik ekuivalen)';
+  $('#tt-ph').textContent=pHf(r.pH);
+  $('#tt-liq').setAttribute('fill',indRGBA(ind,ex));
+  $('#tt-col').textContent=ind?('Warna '+ind.name.toLowerCase()+': '+(ex<=ind.lo?ind.ca:ex>=ind.hi?ind.cb:'peralihan')):'';
+  $('#tt-pt').innerHTML='<details><summary>Langkah perhitungan di titik ini · pH rumus '+pHf(r.pH)+', eksak '+pHf(ex)+'</summary><p class="what">'+r.label+'</p>'+(r.table||'')+'<ol class="steps" style="margin-top:12px">'+r.steps.map(s=>'<li>'+s+'</li>').join('')+'</ol></details>';
+  ttDraw();}
+function niceStep(range,max){const raw=range/max,p=Math.pow(10,Math.floor(lg(raw))),m=raw/p;return(m<=1?1:m<=2?2:m<=5?5:10)*p}
+function ttDraw(){const cv=$('#tt-cv');if(!cv||!TT.c||!cv.clientWidth)return;
+  const W=cv.clientWidth,H=cv.clientHeight,dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+  const st=getComputedStyle(document.documentElement),col=n=>st.getPropertyValue(n).trim();
+  const ink=col('--ink'),muted=col('--muted'),line=col('--line'),acc=col('--accent'),mono='12px IBM Plex Mono, ui-monospace, monospace';
+  const L=40,R=14,T=14,B=40,pw=W-L-R,ph=H-T-B,Vmax=2*TT.ve;
+  const X=v=>L+v/Vmax*pw,Y=p=>T+(1-p/14)*ph;
+  const ind=curInd();
+  if(ind){const gr=g.createLinearGradient(0,Y(ind.hi),0,Y(ind.lo));const al=c=>indRGBA({lo:0,hi:1,a:c,b:c},0).replace(/,([\d.]+)\)$/,(m,a)=>','+(Math.min(.5,+a*.45))+')');gr.addColorStop(0,al(ind.b));gr.addColorStop(1,al(ind.a));g.fillStyle=gr;g.fillRect(L,Y(ind.hi),pw,Y(ind.lo)-Y(ind.hi));}
+  g.font=mono;g.textBaseline='middle';g.textAlign='right';g.lineWidth=1;
+  for(let p=0;p<=14;p+=2){g.strokeStyle=p===7?muted:line;g.globalAlpha=p===7?.7:1;g.beginPath();g.moveTo(L,Y(p));g.lineTo(L+pw,Y(p));g.stroke();g.globalAlpha=1;g.fillStyle=muted;g.fillText(String(p),L-8,Y(p));}
+  const sx=niceStep(Vmax,7);g.textAlign='center';g.textBaseline='top';
+  for(let v=0;v<=Vmax+1e-9;v+=sx){g.strokeStyle=line;g.beginPath();g.moveTo(X(v),T);g.lineTo(X(v),T+ph);g.stroke();g.fillStyle=muted;g.fillText(String(+v.toPrecision(6)).replace('.',','),X(v),T+ph+6);}
+  g.fillStyle=muted;g.fillText('Volume titran (mL)',L+pw/2,H-16);
+  g.save();g.translate(11,T+ph/2);g.rotate(-Math.PI/2);g.textAlign='center';g.textBaseline='middle';g.fillText('pH',0,0);g.restore();
+  g.strokeStyle=ink;g.setLineDash([5,4]);g.globalAlpha=.55;g.beginPath();g.moveTo(X(TT.ve),T);g.lineTo(X(TT.ve),T+ph);g.stroke();g.setLineDash([]);g.globalAlpha=1;
+  g.fillStyle=ink;g.textAlign=TT.ve*1.0>Vmax*0.8?'right':'left';g.textBaseline='top';g.fillText('TE',X(TT.ve)+(g.textAlign==='left'?5:-5),T+3);
+  g.strokeStyle=acc;g.lineWidth=2.6;g.lineJoin='round';g.beginPath();
+  TT.curve.forEach((q,i)=>{const yy=Y(Math.min(14,Math.max(0,q.pH)));i?g.lineTo(X(q.v),yy):g.moveTo(X(q.v),yy)});g.stroke();
+  if(TT.c.kind==='W'){const hv=TT.ve/2,hpH=exactAt(TT.c,hv);g.fillStyle=surfaceFill();g.strokeStyle=ink;g.lineWidth=1.6;g.beginPath();g.arc(X(hv),Y(hpH),4.5,0,7);g.fill();g.stroke();g.fillStyle=ink;g.textAlign='left';g.textBaseline='bottom';g.fillText('½ TE',X(hv)+8,Y(hpH)-6);}
+  const x=+$('#tt-x').value,Vt=x*TT.ve,pp=exactAt(TT.c,Vt),cx=X(Vt),cy=Y(Math.min(14,Math.max(0,pp)));
+  g.strokeStyle=acc;g.lineWidth=1;g.globalAlpha=.5;g.beginPath();g.moveTo(cx,T);g.lineTo(cx,T+ph);g.moveTo(L,cy);g.lineTo(L+pw,cy);g.stroke();g.globalAlpha=1;
+  g.fillStyle=acc;g.beginPath();g.arc(cx,cy,6.5,0,7);g.fill();g.strokeStyle=col('--surface');g.lineWidth=2.5;g.stroke();
+}
+function surfaceFill(){return getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()}
+function ttPointer(e){if(!(e.pointerType==='mouse'||e.buttons))return;const cv=$('#tt-cv'),r=cv.getBoundingClientRect(),L=40,R=14,pw=r.width-L-R;
+  const f=Math.min(1,Math.max(0,(e.clientX-r.left-L)/pw));$('#tt-x').value=(Math.round(f*2*200)/200).toFixed(3);ttUpdate();}
+
+/* ---------- Soal esai: reaksi setara, pereaksi pembatas, pH ---------- */
+const AC_DB=[
+ {id:'hcl',t:'HCl (asam kuat)',f:'HCl',a:1,k:'S',an:'Cl'},
+ {id:'hno3',t:'HNO₃ (asam kuat)',f:'HNO<sub>3</sub>',a:1,k:'S',an:'NO<sub>3</sub>',poly:1},
+ {id:'h2so4',t:'H₂SO₄ (asam kuat)',f:'H<sub>2</sub>SO<sub>4</sub>',a:2,k:'S',an:'SO<sub>4</sub>',poly:1},
+ {id:'ch3cooh',t:'CH₃COOH (asam lemah)',f:'CH<sub>3</sub>COOH',a:1,k:'W',K:'1.8e-5',an:'CH<sub>3</sub>COO',poly:1,first:1},
+ {id:'hcooh',t:'HCOOH (asam lemah)',f:'HCOOH',a:1,k:'W',K:'1.8e-4',an:'HCOO',poly:1,first:1},
+ {id:'hf',t:'HF (asam lemah)',f:'HF',a:1,k:'W',K:'6.8e-4',an:'F'},
+ {id:'hcn',t:'HCN (asam lemah)',f:'HCN',a:1,k:'W',K:'4.9e-10',an:'CN'}];
+const BS_DB=[
+ {id:'naoh',t:'NaOH (basa kuat)',f:'NaOH',b:1,k:'S',ct:'Na',oh:1},
+ {id:'koh',t:'KOH (basa kuat)',f:'KOH',b:1,k:'S',ct:'K',oh:1},
+ {id:'caoh2',t:'Ca(OH)₂ (basa kuat)',f:'Ca(OH)<sub>2</sub>',b:2,k:'S',ct:'Ca',oh:1},
+ {id:'baoh2',t:'Ba(OH)₂ (basa kuat)',f:'Ba(OH)<sub>2</sub>',b:2,k:'S',ct:'Ba',oh:1},
+ {id:'nh3',t:'NH₃ (basa lemah)',f:'NH<sub>3</sub>',b:1,k:'W',K:'1.8e-5',ct:'NH<sub>4</sub>',poly:1}];
+const gcd=(a,b)=>b?gcd(b,a%b):a, lcm=(a,b)=>a*b/gcd(a,b);
+const co=n=>n>1?n:'';
+const grp=(x,n,poly)=>n>1?(poly?'('+x+')':x)+'<sub>'+n+'</sub>':x;
+const exF=e=>e<0?'−'+(-e):String(e);
+function sciParts(c){let e=Math.floor(lg(c)),m=c/Math.pow(10,e);m=+m.toPrecision(3);if(m>=10){m/=10;e++}return{m,e,ms:String(m).replace('.',',')}}
+function esHTML(){return '<div class="panel"><div class="card"><h2>Soal campuran asam dan basa</h2>'+
+ '<p class="sub">Pilih zat dan ubah angkanya. Soal, persamaan reaksi, pereaksi pembatas, dan pH dihitung ulang otomatis.</p>'+
+ fS('es-a','Larutan asam',AC_DB.map(x=>[x.id,x.t]),'h2so4')+fI('es-Ma','Konsentrasi asam (M)','0,1','M')+fI('es-Va','Volume asam (mL)','100','mL')+
+ '<div id="es-Kaw" hidden>'+fI('es-Ka','Ka asam lemah','1.8e-5')+'</div>'+
+ fS('es-b','Larutan basa',BS_DB.map(x=>[x.id,x.t]),'naoh')+fI('es-Mb','Konsentrasi basa (M)','0,2','M')+fI('es-Vb','Volume basa (mL)','150','mL')+
+ '<div id="es-Kbw" hidden>'+fI('es-Kb','Kb basa lemah','1.8e-5')+'</div>'+
+ '<div class="row"><button type="button" class="btn" data-es="sample">Soal contoh</button><button type="button" class="btn primary" data-es="rand">Acak angka</button></div>'+
+ '</div><div class="card" id="es-out" aria-live="polite"></div></div>';}
+function esSync(){
+  const ac=AC_DB.find(x=>x.id===$('#es-a').value),bs=BS_DB.find(x=>x.id===$('#es-b').value);
+  show('es-Kaw',ac.k==='W');show('es-Kbw',bs.k==='W');
+  const ka=$('#es-Ka'),kb=$('#es-Kb');
+  if(ka.dataset.s!==ac.id){ka.dataset.s=ac.id;if(ac.K)ka.value=ac.K;}
+  if(kb.dataset.s!==bs.id){kb.dataset.s=bs.id;if(bs.K)kb.value=bs.K;}
+  return{ac,bs};
+}
+function esAct(a){
+  if(a==='sample'){$('#es-a').value='h2so4';$('#es-b').value='naoh';$('#es-Ma').value='0,1';$('#es-Va').value='100';$('#es-Mb').value='0,2';$('#es-Vb').value='150';}
+  else{const f=x=>String(x).replace('.',',');
+    $('#es-Ma').value=f(rnd([0.05,0.1,0.2,0.25,0.5]));$('#es-Mb').value=f(rnd([0.05,0.1,0.2,0.25,0.5]));
+    $('#es-Va').value=f(rnd([50,75,100,150,200,250]));$('#es-Vb').value=f(rnd([50,75,100,150,200,250]));}
+  esCalc();
+}
+function esCalc(){const box=$('#es-out');const {ac,bs}=esSync();safe(box,()=>{
+  const Ma=val('es-Ma','Konsentrasi asam'),Va=val('es-Va','Volume asam'),Mb=val('es-Mb','Konsentrasi basa'),Vb=val('es-Vb','Volume basa');
+  const Ka=ac.k==='W'?val('es-Ka','Ka'):null,Kb=bs.k==='W'?val('es-Kb','Kb'):null,T=sci;
+  const L=lcm(ac.a,bs.b),cA=L/ac.a,cB=L/bs.b,cW=bs.oh?L:0;
+  const salt=(ac.first?grp(ac.an,cA,ac.poly)+grp(bs.ct,cB,bs.poly):grp(bs.ct,cB,bs.poly)+grp(ac.an,cA,ac.poly));
+  const eqn=co(cA)+ac.f+' + '+co(cB)+bs.f+' → '+salt+(cW?' + '+co(cW)+'H<sub>2</sub>O':'');
+  const nA=Ma*Va/1000,nB=Mb*Vb/1000,Vt=(Va+Vb)/1000,rA=nA/cA,rB=nB/cB,xi=Math.min(rA,rB),eq=Math.abs(rA-rB)<=1e-9*Math.max(rA,rB);
+  const useA=cA*xi,useB=cB*xi,sA=(eq||rA<rB)?0:nA-useA,sB=(eq||rB<rA)?0:nB-useB;
+  const r=mixAB({k:ac.k,M:Ma,V:Va/1000,n:ac.a,K:Ka},{k:bs.k,M:Mb,V:Vb/1000,n:bs.b,K:Kb});
+
+  /* bagian 3: pH */
+  const st=[];let hint='';
+  st.push('Volume total = '+T(Va)+' mL + '+T(Vb)+' mL = '+T(Va+Vb)+' mL = '+T(Vt)+' L');
+  if(r.cat==='excessH'||r.cat==='excessOH'){
+    const acid=r.cat==='excessH',zat=acid?ac:bs,s=acid?sA:sB,v=acid?ac.a:bs.b,mol=s*v,c=mol/Vt,p=sciParts(c);
+    const X=acid?'H<sup>+</sup>':'OH<sup>−</sup>',Xb=acid?hp:oh;
+    st.push('Zat yang bersisa adalah '+zat.f+' sebanyak '+T(s)+' mol. Setiap satuan rumus '+zat.f+' menghasilkan '+v+' ion '+X+', maka mol '+X+' = '+v+' × '+T(s)+' = '+T(mol)+' mol');
+    st.push(Xb+' = mol '+X+' / V total = '+T(mol)+' / '+T(Vt)+' = '+T(c)+' M');
+    const pv=-lg(c);
+    const calc=p.m===1?'−log 10<sup>'+exF(p.e)+'</sup> = '+(-p.e):'−log ('+p.ms+' × 10<sup>'+exF(p.e)+'</sup>) = '+(-p.e)+' − log '+p.ms+' = '+(-p.e)+' − '+pHf(lg(p.m))+' = '+pHf(pv);
+    if(acid)st.push('pH = '+calc);
+    else{st.push('pOH = '+calc);st.push('pH = 14 − pOH = 14 − '+pHf(pv)+' = '+pHf(r.pH));}
+    if(p.m!==1)hint=' (Diketahui log '+p.ms+' = '+pHf(lg(p.m))+')';
+  }else if(r.cat==='neutral'){
+    st.push('Kedua pereaksi habis tepat. Garam '+salt+' berasal dari asam kuat dan basa kuat sehingga tidak terhidrolisis. Larutan netral, pH = 7');
+  }else{
+    r.steps.slice(3).forEach(x=>st.push(x.replace(/ mmol/g,' mol').replace(/ mL/g,' L')));
+  }
+  const cls=phClass(r.pH);
+
+  /* bagian 2: pereaksi pembatas */
+  const lim=eq?null:(rA<rB?ac:bs),oth=eq?null:(rA<rB?bs:ac),sOth=rA<rB?sB:sA;
+  const s2=[
+   'Mol '+ac.f+' = M × V = '+T(Ma)+' M × '+T(Va/1000)+' L = '+T(nA)+' mol',
+   'Mol '+bs.f+' = M × V = '+T(Mb)+' M × '+T(Vb/1000)+' L = '+T(nB)+' mol',
+   'Bandingkan mol ÷ koefisien: '+ac.f+' = '+T(nA)+' / '+cA+' = '+T(rA)+'; '+bs.f+' = '+T(nB)+' / '+cB+' = '+T(rB),
+   eq?'Kedua nilai sama, jadi kedua pereaksi habis bereaksi tepat (campuran stoikiometris).':'Nilai yang lebih kecil adalah pereaksi pembatas, yaitu <b>'+lim.f+'</b>. Pereaksi ini habis, sedangkan '+oth.f+' bersisa.'];
+  const tbl=mrsTable([ac.f,bs.f,salt],[['Mula-mula (mol)',T(nA),T(nB),'–'],['Bereaksi','−'+T(useA),'−'+T(useB),'+'+T(xi)],['Sisa',T(sA),T(sB),T(xi)]]);
+  const summ=eq?'Tidak ada pereaksi yang tersisa. Garam '+salt+' yang terbentuk = '+T(xi)+' mol.':'Zat yang tersisa: <b>'+T(sOth)+' mol '+oth.f+'</b>. Garam '+salt+' yang terbentuk = '+T(xi)+' mol.';
+
+  /* soal */
+  const kn=(ac.k==='W'?' Diketahui K<sub>a</sub> '+ac.f+' = '+T(Ka)+'.':'')+(bs.k==='W'?' Diketahui K<sub>b</sub> '+bs.f+' = '+T(Kb)+'.':'');
+  box.innerHTML='<div class="k">Soal</div><p class="q">Sebanyak '+T(Va)+' mL larutan '+ac.f+' '+T(Ma)+' M dicampurkan dengan '+T(Vb)+' mL larutan '+bs.f+' '+T(Mb)+' M pada suhu 25 °C.'+kn+'</p>'+
+   '<ol class="steps"><li>Tuliskan persamaan reaksi setara antara kedua larutan tersebut!</li><li>Tentukan pereaksi pembatas dan jumlah mol zat yang tersisa!</li><li>Hitunglah pH larutan campuran yang terbentuk!'+hint+'</li></ol>'+
+   '<details open><summary>Kunci jawaban dan pembahasan</summary>'+
+   '<h3>1. Persamaan reaksi setara</h3><div class="fx">'+eqn+'</div>'+
+   '<p>'+ac.f+' melepas '+ac.a+' H<sup>+</sup> per satuan rumus dan '+bs.f+(bs.oh?' melepas ':' menerima ')+bs.b+(bs.oh?' OH<sup>−</sup>':' H<sup>+</sup>')+' per satuan rumus. KPK '+ac.a+' dan '+bs.b+' adalah '+L+', sehingga koefisien '+ac.f+' = '+L+'/'+ac.a+' = '+cA+' dan koefisien '+bs.f+' = '+L+'/'+bs.b+' = '+cB+'.</p>'+
+   '<h3>2. Pereaksi pembatas dan mol sisa</h3><ol class="steps">'+s2.map(x=>'<li>'+x+'</li>').join('')+'</ol>'+tbl+'<p class="note">'+summ+'</p>'+
+   '<h3>3. pH larutan campuran</h3><div class="res-head"><div><div class="k">pH campuran</div><div class="ph">'+pHf(r.pH)+'</div></div><div class="pill '+cls.c+'">'+cls.t+'</div></div><p class="what">'+r.label+'</p>'+phBar(r.pH)+
+   '<ol class="steps">'+st.map(x=>'<li>'+x+'</li>').join('')+'</ol>'+(r.notes||[]).map(n=>'<p class="note">'+n+'</p>').join('')+
+   '</details>';
+});}
+
+/* ---------- Tab 6: Latihan ---------- */
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+const fn=s=>s.split(' (')[0];
+const GEN={
+ sa(){const [nm,n]=rnd([['HCl',1],['HNO₃',1],['HBr',1],['H₂SO₄',2]]),M=rnd([0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2]);return{q:'Hitung pH larutan '+nm+' '+sci(M)+' M.',r:single('acid','S',M,n)}},
+ sb(){const [nm,n]=rnd([['NaOH',1],['KOH',1],['Ca(OH)₂',2],['Ba(OH)₂',2]]),M=rnd([0.001,0.002,0.005,0.01,0.02,0.05]);return{q:'Hitung pH larutan '+nm+' '+sci(M)+' M.',r:single('base','S',M,n)}},
+ wa(){const [nm,k]=rnd(ACIDS.slice(0,6)),M=rnd([0.01,0.02,0.05,0.1,0.2]);return{q:'Hitung pH larutan '+fn(nm)+' '+sci(M)+' M (K<sub>a</sub> = '+sci(+k)+').',r:single('acid','W',M,1,+k)}},
+ wb(){const [nm,k]=rnd(BASES.slice(0,3)),M=rnd([0.01,0.02,0.05,0.1,0.2]);return{q:'Hitung pH larutan '+fn(nm)+' '+sci(M)+' M (K<sub>b</sub> = '+sci(+k)+').',r:single('base','W',M,1,+k)}},
+ buf(){for(let i=0;i<60;i++){const [nm,k]=rnd(ACIDS.slice(0,4)),Va=rnd([25,50,100]),Ma=rnd([0.1,0.2,0.5]),Vb=rnd([10,20,25,40,50]),Mb=rnd([0.1,0.2]);
+   if(Mb*Vb<Ma*Va){return{q:Va+' mL '+fn(nm)+' '+sci(Ma)+' M (K<sub>a</sub> = '+sci(+k)+') dicampur dengan '+Vb+' mL NaOH '+sci(Mb)+' M. Hitung pH campuran.',r:mixAB({k:'W',M:Ma,V:Va,K:+k},{k:'S',M:Mb,V:Vb,n:1})}}}},
+ hyd(){for(let i=0;i<80;i++){const Va=rnd([25,50,100]),Ma=rnd([0.1,0.2]),Mb=rnd([0.1,0.2,0.4]),Vb=Ma*Va/Mb;if(!Number.isInteger(+Vb.toFixed(6)))continue;
+   if(Math.random()<.5){const [nm,k]=rnd(ACIDS.slice(0,4));return{q:Va+' mL '+fn(nm)+' '+sci(Ma)+' M (K<sub>a</sub> = '+sci(+k)+') dicampur dengan '+Vb+' mL NaOH '+sci(Mb)+' M. Hitung pH campuran.',r:mixAB({k:'W',M:Ma,V:Va,K:+k},{k:'S',M:Mb,V:Vb,n:1})}}
+   const [nm,k]=rnd(BASES.slice(0,3));return{q:Va+' mL HCl '+sci(Ma)+' M dicampur dengan '+Vb+' mL '+fn(nm)+' '+sci(Mb)+' M (K<sub>b</sub> = '+sci(+k)+'). Hitung pH campuran.',r:mixAB({k:'S',M:Ma,V:Va,n:1},{k:'W',M:Mb,V:Vb,K:+k})}}},
+ tit(){const t=rnd(['SA','WA','SB','WB']),kind=t[0],type=t[1]==='A'?'acid':'base',wk=kind==='W';
+   const [nm,k]=wk?rnd((type==='acid'?ACIDS:BASES).slice(0,3)):[type==='acid'?'HCl':'NaOH',0];
+   const c={type,kind,M:0.1,V:25,n:1,K:+k,Mt:0.1,nt:1},f=rnd([0,0.4,0.5,1,1.2,1.6,2]),Vt=f*25,tn=type==='acid'?'NaOH':'HCl';
+   return{q:'Sebanyak 25 mL '+fn(nm)+' 0,1 M'+(wk?' ('+(type==='acid'?'K<sub>a</sub>':'K<sub>b</sub>')+' = '+sci(+k)+')':'')+' dititrasi dengan '+tn+' 0,1 M. Hitung pH setelah penambahan '+(Vt===0?'0 mL (sebelum titrasi dimulai)':sci(Vt)+' mL')+' '+(Vt===0?'':tn)+'.',r:titrPoint(c,Vt)}}
+};
+const LT=[['acak','Acak'],['sa','Asam kuat'],['sb','Basa kuat'],['wa','Asam lemah'],['wb','Basa lemah'],['buf','Penyangga'],['hyd','Hidrolisis'],['tit','Titrasi']];
+const LS={cur:null,done:false,ok:0,n:0};
+function ltHTML(){return '<div class="panel"><div class="card"><h2>Latihan soal</h2>'+fS('lt-t','Topik',LT,'acak')+
+ '<p class="sub">Jawab dengan pH dua desimal. Jawaban dianggap benar jika selisihnya tidak lebih dari 0,05.</p><div class="score" id="lt-sc"></div></div>'+
+ '<div class="card" id="lt-q"></div></div>';}
+function ltNew(){const t=$('#lt-t').value,k=t==='acak'?rnd(Object.keys(GEN)):t;LS.cur=GEN[k]();LS.done=false;
+  $('#lt-q').innerHTML='<div class="k">Soal</div><p class="q">'+LS.cur.q+'</p>'+
+   '<div class="f" style="max-width:280px"><label for="lt-a">Jawaban pH</label><input id="lt-a" type="text" inputmode="decimal" autocomplete="off" placeholder="mis. 4,74"></div>'+
+   '<div class="row"><button type="button" class="btn primary" data-lt="chk">Periksa</button><button type="button" class="btn" data-lt="show">Lihat pembahasan</button><button type="button" class="btn" data-lt="new">Soal baru</button></div><div id="lt-fb" aria-live="polite"></div>';
+  ltScore();}
+function ltScore(){$('#lt-sc').textContent='Benar '+LS.ok+' dari '+LS.n+' soal';}
+function ltReveal(msg,cls){const r=LS.cur.r;
+  $('#lt-fb').innerHTML=(msg?'<p class="fb '+cls+'">'+msg+'</p>':'')+'<h3>Pembahasan · pH = '+pHf(r.pH)+'</h3><p class="what">'+r.label+'</p>'+(r.table||'')+'<ol class="steps" style="margin-top:12px">'+r.steps.map(s=>'<li>'+s+'</li>').join('')+'</ol>';}
+function ltAct(a){
+  if(a==='new')return ltNew();
+  if(a==='show'){ltReveal('','');return;}
+  const v=parseNum($('#lt-a').value);if(!isFinite(v)){$('#lt-fb').innerHTML='<p class="err">Tuliskan jawaban berupa angka dulu.</p>';return;}
+  const d=Math.abs(v-LS.cur.r.pH);
+  if(!LS.done){LS.n++;if(d<=0.05)LS.ok++;LS.done=true;ltScore();}
+  if(d<=0.05)ltReveal('Benar. Jawabanmu '+pHf(v)+', jawaban yang diharapkan '+pHf(LS.cur.r.pH)+'.','good');
+  else if(d<=0.2)ltReveal('Hampir benar. Selisih '+pHf(d)+' dari '+pHf(LS.cur.r.pH)+'. Periksa pembulatan di tiap langkah.','mid');
+  else ltReveal('Belum tepat. Jawaban yang diharapkan '+pHf(LS.cur.r.pH)+'. Bandingkan dengan langkah berikut.','no');
+}
+
+/* ---------- Tab 7: Rumus ---------- */
+function rmHTML(){const fx=s=>'<div class="fx">'+s+'</div>';
+ return '<div class="ref">'+
+ '<div class="card"><h2>Asam dan basa</h2><p>Skala pH pada 25 °C:</p>'+fx('pH = −log [H<sup>+</sup>]    pOH = −log [OH<sup>−</sup>]')+fx('pH + pOH = 14    K<sub>w</sub> = 10<sup>−14</sup>')+
+  '<p>Kuat (valensi a atau b):</p>'+fx('[H<sup>+</sup>] = a × M asam')+fx('[OH<sup>−</sup>] = b × M basa')+'<p>Lemah:</p>'+fx('[H<sup>+</sup>] = √(K<sub>a</sub> × M)    α = √(K<sub>a</sub>/M)')+fx('[OH<sup>−</sup>] = √(K<sub>b</sub> × M)    α = √(K<sub>b</sub>/M)')+'</div>'+
+ '<div class="card"><h2>Campuran asam dan basa</h2><p>Mol = M × V (mmol bila V dalam mL). Bandingkan mol H<sup>+</sup> dengan mol OH<sup>−</sup>.</p><div class="scroll"><table><thead><tr><th>Keadaan setelah reaksi</th><th>pH</th></tr></thead><tbody>'+
+  '<tr><td>Asam kuat bersisa</td><td class="n">−log (sisa mol H<sup>+</sup>/V total)</td></tr><tr><td>Basa kuat bersisa</td><td class="n">14 + log (sisa mol OH<sup>−</sup>/V total)</td></tr>'+
+  '<tr><td>Asam lemah bersisa + garam</td><td>Penyangga asam</td></tr><tr><td>Basa lemah bersisa + garam</td><td>Penyangga basa</td></tr><tr><td>Lemah dan kuat habis tepat</td><td>Hidrolisis garam</td></tr><tr><td>Kuat dan kuat habis tepat</td><td>pH = 7</td></tr></tbody></table></div></div>'+
+ '<div class="card"><h2>Larutan penyangga</h2>'+fx('[H<sup>+</sup>] = K<sub>a</sub> × mol asam lemah / mol basa konjugat')+fx('pH = pK<sub>a</sub> + log (mol garam / mol asam)')+fx('[OH<sup>−</sup>] = K<sub>b</sub> × mol basa lemah / mol asam konjugat')+fx('pOH = pK<sub>b</sub> + log (mol garam / mol basa)')+
+  '<p>Penyangga terbentuk bila zat lemah bersisa bersama pasangan konjugatnya. Penambahan sedikit asam atau basa serta pengenceran hampir tidak mengubah pH. Penyangga paling efektif pada pH = pK ± 1.</p></div>'+
+ '<div class="card"><h2>Hidrolisis garam</h2><div class="scroll"><table><thead><tr><th>Garam dari</th><th>Rumus</th></tr></thead><tbody>'+
+  '<tr><td>Asam lemah + basa kuat</td><td class="n">[OH<sup>−</sup>] = √(K<sub>w</sub>/K<sub>a</sub> × [anion])</td></tr><tr><td>Asam kuat + basa lemah</td><td class="n">[H<sup>+</sup>] = √(K<sub>w</sub>/K<sub>b</sub> × [kation])</td></tr>'+
+  '<tr><td>Asam lemah + basa lemah</td><td class="n">pH = 7 + ½ pK<sub>a</sub> − ½ pK<sub>b</sub></td></tr><tr><td>Asam kuat + basa kuat</td><td>Tidak terhidrolisis, pH = 7</td></tr></tbody></table></div>'+fx('K<sub>h</sub> = K<sub>w</sub> / K<sub>a</sub> (atau K<sub>w</sub> / K<sub>b</sub>)    h = √(K<sub>h</sub>/M)')+'</div>'+
+ '<div class="card"><h2>Titrasi</h2><p>Titik ekuivalen: mol ekuivalen analit = mol ekuivalen titran.</p>'+fx('M<sub>1</sub> × V<sub>1</sub> × n<sub>1</sub> = M<sub>2</sub> × V<sub>2</sub> × n<sub>2</sub>')+
+  '<p>Empat daerah pada titrasi asam lemah oleh basa kuat:</p><div class="scroll"><table><tbody><tr><td>Awal</td><td class="n">[H<sup>+</sup>] = √(K<sub>a</sub>·M)</td></tr><tr><td>Sebelum TE</td><td class="n">penyangga, pH = pK<sub>a</sub> + log (garam/asam)</td></tr><tr><td>Titik ekuivalen</td><td class="n">hidrolisis garam, pH &gt; 7</td></tr><tr><td>Sesudah TE</td><td class="n">sisa OH<sup>−</sup> dari titran</td></tr></tbody></table></div>'+
+  '<p>Titrasi asam kuat–basa kuat memiliki pH 7 di TE. Titrasi basa lemah oleh asam kuat memiliki pH &lt; 7 di TE.</p></div>'+
+ '<div class="card"><h2>Indikator asam basa</h2><div class="scroll"><table><thead><tr><th>Indikator</th><th class="n">Rentang pH</th><th>Perubahan warna</th></tr></thead><tbody>'+
+  INDS.map(i=>'<tr><td>'+i.name+'</td><td class="n">'+String(i.lo).replace('.',',')+' – '+String(i.hi).replace('.',',')+'</td><td>'+i.ca+' → '+i.cb+'</td></tr>').join('')+'</tbody></table></div></div></div>';}
+
+/* ---------- Router & peristiwa ---------- */
+const TABS={
+ 'asam-basa':{t:'Asam/Basa',h:abHTML,c:abCalc},
+ 'campuran':{t:'Campuran',h:cmHTML,c:cmCalc},
+ 'hidrolisis':{t:'Hidrolisis',h:hyHTML,c:hyCalc},
+ 'penyangga':{t:'Penyangga',h:pbHTML,c:pbCalc},
+ 'titrasi':{t:'Titrasi',h:ttHTML,c:ttCalc},
+ 'esai':{t:'Soal Esai',h:esHTML,c:esCalc},
+ 'latihan':{t:'Latihan',h:ltHTML,c:ltNew},
+ 'rumus':{t:'Rumus',h:rmHTML,c:null}
+};
+const built={};
+$('#tabs').innerHTML=Object.keys(TABS).map(k=>'<a href="#'+k+'" data-t="'+k+'">'+TABS[k].t+'</a>').join('');
+function route(){
+  const id=(location.hash||'').slice(1),k=TABS[id]?id:'asam-basa';
+  $$('.tab').forEach(s=>s.hidden=(s.id!=='tab-'+k));
+  $$('#tabs a').forEach(a=>{if(a.dataset.t===k)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  if(!built[k]){$('#tab-'+k).innerHTML=TABS[k].h();built[k]=true;if(TABS[k].c)TABS[k].c();}
+  else if(k==='titrasi')ttDraw();
+  const a=$('#tabs a[aria-current]');if(a&&a.scrollIntoView)a.scrollIntoView({inline:'center',block:'nearest'});
+}
+function dispatch(e){
+  const t=e.target;if(!t||!t.id&&!t.dataset)return;
+  const sec=t.closest&&t.closest('section.tab');if(!sec)return;
+  const k=sec.id.slice(4);
+  if(e.type==='change'&&t.id&&t.id.endsWith('-p')){const inp=$('#'+t.id.slice(0,-2));if(inp&&t.value){inp.value=t.value;}else return;}
+  if(e.type==='input'&&t.tagName==='INPUT'&&t.type==='text'){const p=$('#'+t.id+'-p');if(p)p.value='';}
+  if(k==='latihan')return;
+  if(k==='titrasi'&&t.id==='tt-x'){ttUpdate();return;}
+  if(k==='titrasi'&&t.id==='tt-ind'){ttUpdate();return;}
+  if(k==='penyangga'&&(t.id==='ad-a'||t.id==='ad-b')){adCalc();return;}
+  if(TABS[k].c)TABS[k].c();
+}
+document.addEventListener('input',dispatch);
+document.addEventListener('change',dispatch);
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('button');if(!b)return;
+  if(b.dataset.pbm){PB.mode=b.dataset.pbm;pbCalc();}
+  else if(b.dataset.ttx!==undefined){$('#tt-x').value=b.dataset.ttx;ttUpdate();}
+  else if(b.dataset.lt)ltAct(b.dataset.lt);
+  else if(b.dataset.es)esAct(b.dataset.es);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lt-a')ltAct('chk')});
+document.addEventListener('change',e=>{if(e.target.id==='lt-t')ltNew()});
+document.addEventListener('pointerdown',e=>{if(e.target.id==='tt-cv')ttPointer(e)});
+document.addEventListener('pointermove',e=>{if(e.target.id==='tt-cv')ttPointer(e)});
+window.addEventListener('hashchange',route);
+window.addEventListener('resize',()=>{if(built.titrasi&&!$('#tab-titrasi').hidden)ttDraw()});
+try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>ttDraw());new MutationObserver(()=>ttDraw()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(_){}
+route();
+</script>
+</body>
+</html>
